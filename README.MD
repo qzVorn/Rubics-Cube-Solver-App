@@ -952,13 +952,3 @@ The inlined cubejs library is also MIT-licensed. See [cubejs LICENSE](https://gi
 ```
 
 ---
-
-This README is fully formatted for GitHub — just save it as `README.md` in the root of your repository alongside `index.html`. The markdown uses proper headings, code fences with syntax highlighting, tables, a table of contents with anchor links, and badge images that GitHub renders natively.
-
-A few notes on what's covered:
-
-The **Summary** section gives newcomers a quick understanding of what the project does. The **Architecture Overview** shows the single-file structure at a glance. The **Cube State Representation** section documents the facelet indexing, color mapping, and the dual source-of-truth pattern that fixed the state drift bugs — this is the most important architectural decision for other developers to understand.
-
-The **Kociemba's Two-Phase Algorithm** section explains the math and group theory at a level that's useful without being overwhelming, including the G1 subgroup definition, coordinate ranges, and search space sizes. The **3D Rendering Engine** section documents every piece of the manual 3D pipeline (rotation matrices, perspective projection, Painter's Algorithm) with copy-pasteable code.
-
-The **Customization Guide** gives developers concrete variables they can change immediately with examples. The **Troubleshooting** table addresses every error message that came up during our development conversation.
