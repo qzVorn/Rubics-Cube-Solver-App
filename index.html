@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Rubik's Cube Solver</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#0c0c1d 0%,#1a1a3e 50%,#0c0c1d 100%);color:#fff;min-height:100vh;overflow-x:hidden}
+#app{display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:2.2rem;margin:8px 0;background:linear-gradient(90deg,#ff6b6b,#feca57,#48dbfb,#ff9ff3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-align:center}
+.subtitle{color:#888;margin-bottom:12px;text-align:center;font-size:.93rem}
+.main-layout{display:flex;gap:25px;width:100%;max-width:1350px;justify-content:center;flex-wrap:wrap}
+.left-panel,.right-panel{flex:1;min-width:280px;max-width:360px}
+.center-panel{flex:1.5;min-width:400px;max-width:560px;display:flex;flex-direction:column;align-items:center}
+#cube-container{width:100%;height:430px;cursor:grab;position:relative}
+#cube-container:active{cursor:grabbing}
+canvas{width:100%;height:100%;display:block;border-radius:12px}
+.panel{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:18px;margin-bottom:12px}
+.panel h2{font-size:1.05rem;margin-bottom:10px;color:#48dbfb}
+.color-palette{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+.color-swatch{width:46px;height:46px;border-radius:10px;cursor:pointer;border:3px solid transparent;transition:all .2s}
+.color-swatch:hover{transform:scale(1.15)}
+.color-swatch.active{border-color:#fff;box-shadow:0 0 15px rgba(255,255,255,.5);transform:scale(1.15)}
+.color-swatch[data-color="W"]{background:#ffffff}
+.color-swatch[data-color="Y"]{background:#ffd700}
+.color-swatch[data-color="R"]{background:#dc3545}
+.color-swatch[data-color="O"]{background:#ff8c00}
+.color-swatch[data-color="B"]{background:#003da5}
+.color-swatch[data-color="G"]{background:#009b48}
+.cube-net{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:4px;max-width:320px;margin:0 auto 12px}
+.face-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;padding:3px;background:rgba(0,0,0,.4);border-radius:6px;position:relative}
+.face-grid::after{content:attr(data-label);position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:.58rem;color:#666;white-space:nowrap;letter-spacing:.3px}
+.face-grid.top{grid-column:2;grid-row:1}
+.face-grid.left{grid-column:1;grid-row:2}
+.face-grid.front{grid-column:2;grid-row:2}
+.face-grid.right{grid-column:3;grid-row:2}
+.face-grid.back{grid-column:4;grid-row:2}
+.face-grid.bottom{grid-column:2;grid-row:3}
+.face-cell{width:100%;aspect-ratio:1;border-radius:3px;cursor:pointer;border:1px solid rgba(255,255,255,.15);transition:all .15s;min-width:18px}
+.face-cell:hover{opacity:.75;transform:scale(1.12);z-index:2}
+.btn{padding:12px 24px;border:none;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;box-shadow:0 4px 15px rgba(108,92,231,.4)}
+.btn-success{background:linear-gradient(135deg,#00b894,#55efc4);color:#1a1a2e;box-shadow:0 4px 15px rgba(0,184,148,.4)}
+.btn-warning{background:linear-gradient(135deg,#fdcb6e,#ffeaa7);color:#1a1a2e;box-shadow:0 4px 15px rgba(253,203,110,.4)}
+.btn-danger{background:linear-gradient(135deg,#e17055,#fab1a0);color:#fff;box-shadow:0 4px 15px rgba(225,112,85,.3)}
+.btn-sm{padding:8px 16px;font-size:.85rem}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+.button-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.steps-container{max-height:380px;overflow-y:auto;padding-right:5px}
+.steps-container::-webkit-scrollbar{width:6px}
+.steps-container::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:3px}
+.steps-container::-webkit-scrollbar-thumb{background:#6c5ce7;border-radius:3px}
+.step-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:5px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);transition:all .3s;cursor:pointer}
+.step-item:hover{background:rgba(255,255,255,.07)}
+.step-item.active{background:rgba(108,92,231,.2);border-color:#6c5ce7;box-shadow:0 0 15px rgba(108,92,231,.2)}
+.step-item.completed{background:rgba(0,184,148,.12);border-color:rgba(0,184,148,.25)}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;flex-shrink:0}
+.step-item.active .step-num{background:#6c5ce7}
+.step-item.completed .step-num{background:#00b894}
+.step-move{font-weight:700;font-size:1.15rem;min-width:32px;color:#feca57}
+.step-desc{font-size:.8rem;color:#aaa;flex:1}
+.progress-bar{width:100%;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;margin:10px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,#6c5ce7,#a29bfe,#48dbfb);border-radius:4px;transition:width .5s ease;width:0%}
+.status-bar{text-align:center;padding:10px;border-radius:10px;margin:10px 0;font-weight:600;font-size:.92rem}
+.status-info{background:rgba(72,219,251,.1);color:#48dbfb}
+.status-success{background:rgba(0,184,148,.15);color:#55efc4}
+.status-error{background:rgba(225,112,85,.15);color:#fab1a0}
+.speed-control{display:flex;align-items:center;gap:10px;margin:8px 0}
+.speed-control label{font-size:.85rem;color:#aaa}
+.speed-control input[type=range]{flex:1;accent-color:#6c5ce7}
+.rotation-hint{text-align:center;font-size:.78rem;color:#555;margin:4px 0}
+.congrats{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .5s}
+.congrats.show{opacity:1;pointer-events:all}
+.congrats-content{text-align:center;padding:40px;background:rgba(255,255,255,.08);border-radius:24px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15)}
+.congrats-content h2{font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#ff6b6b,#feca57,#48dbfb,#ff9ff3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.congrats-content p{color:#aaa;margin-bottom:20px;font-size:1.1rem}
+.color-count-bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0;font-size:.72rem}
+.color-count{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.06);font-weight:600}
+.color-count .dot{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.2)}
+.color-count.ok{color:#55efc4}
+.color-count.bad{color:#fab1a0}
+@media(max-width:950px){.main-layout{flex-direction:column;align-items:center}.left-panel,.right-panel,.center-panel{max-width:520px;min-width:auto;width:100%}#cube-container{height:340px}}
+</style>
+</head>
+<body>
+<div id="app">
+<h1>Rubik's Cube Solver</h1>
+<p class="subtitle">Paint every sticker on all 6 faces, then watch it solve step by step</p>
+<div class="main-layout">
+
+<div class="left-panel">
+<div class="panel">
+<h2>1. Pick a Color</h2>
+<div class="color-palette">
+<div class="color-swatch active" data-color="W" title="White"></div>
+<div class="color-swatch" data-color="Y" title="Yellow"></div>
+<div class="color-swatch" data-color="R" title="Red"></div>
+<div class="color-swatch" data-color="O" title="Orange"></div>
+<div class="color-swatch" data-color="B" title="Blue"></div>
+<div class="color-swatch" data-color="G" title="Green"></div>
+</div>
+<div class="color-count-bar" id="color-counts"></div>
+</div>
+<div class="panel">
+<h2>2. Paint Every Sticker</h2>
+<div class="cube-net" id="cube-net"></div>
+<div class="button-row">
+<button class="btn btn-danger btn-sm" onclick="resetCube()">Reset</button>
+<button class="btn btn-warning btn-sm" onclick="randomizeCube()">Random Scramble</button>
+</div>
+</div>
+<div class="panel">
+<h2>Animation Speed</h2>
+<div class="speed-control">
+<label>Slow</label>
+<input type="range" id="speed-slider" min="1" max="10" value="5">
+<label>Fast</label>
+</div>
+</div>
+</div>
+
+<div class="center-panel">
+<div id="cube-container"><canvas id="cube-canvas"></canvas></div>
+<p class="rotation-hint">Click and drag to rotate the 3D view</p>
+<div class="button-row">
+<button class="btn btn-success" id="solve-btn" onclick="solveCube()">Solve Cube</button>
+</div>
+<div id="status" class="status-bar status-info">Paint all 6 faces (9 stickers each), then click Solve!</div>
+<div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+</div>
+
+<div class="right-panel">
+<div class="panel">
+<h2>Solution Steps</h2>
+<div class="steps-container" id="steps-container">
+<p style="color:#555;text-align:center;padding:30px 0;">Steps appear here after solving.</p>
+</div>
+</div>
+<div class="button-row">
+<button class="btn btn-primary btn-sm" id="prev-btn" onclick="prevStep()" disabled>&#9664; Prev</button>
+<button class="btn btn-primary btn-sm" id="play-btn" onclick="togglePlay()" disabled>&#9654; Play</button>
+<button class="btn btn-primary btn-sm" id="next-btn" onclick="nextStep()" disabled>Next &#9654;</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="congrats" id="congrats">
+<div class="congrats-content">
+<h2>Cube Solved!</h2>
+<p id="congrats-text">Solved in 0 moves</p>
+<button class="btn btn-primary" onclick="closeCongrats()">Awesome!</button>
+</div>
+</div>
+
+<script>
+// =====================================================================
+// cubejs inlined (cube.js + solve.js — Kociemba two-phase algorithm)
+// =====================================================================
+(function(){var B,BL,BR,Cube,D,DB,DBL,DF,DFR,DL,DLF,DR,DRB,F,FL,FR,L,R,U,UB,UBR,UF,UFL,UL,ULB,UR,URF,centerColor,centerFacelet,cornerColor,cornerFacelet,edgeColor,edgeFacelet;[U,R,F,D,L,B]=[0,1,2,3,4,5];[URF,UFL,ULB,UBR,DFR,DLF,DBL,DRB]=[0,1,2,3,4,5,6,7];[UR,UF,UL,UB,DR,DF,DL,DB,FR,FL,BL,BR]=[0,1,2,3,4,5,6,7,8,9,10,11];[centerFacelet,cornerFacelet,edgeFacelet]=(function(){var _B,_D,_F,_L,_R,_U;_U=function(x){return x-1};_R=function(x){return _U(9)+x};_F=function(x){return _R(9)+x};_D=function(x){return _F(9)+x};_L=function(x){return _D(9)+x};_B=function(x){return _L(9)+x};return[[4,13,22,31,40,49],[[_U(9),_R(1),_F(3)],[_U(7),_F(1),_L(3)],[_U(1),_L(1),_B(3)],[_U(3),_B(1),_R(3)],[_D(3),_F(9),_R(7)],[_D(1),_L(9),_F(7)],[_D(7),_B(9),_L(7)],[_D(9),_R(9),_B(7)]],[[_U(6),_R(2)],[_U(8),_F(2)],[_U(4),_L(2)],[_U(2),_B(2)],[_D(6),_R(8)],[_D(2),_F(8)],[_D(4),_L(8)],[_D(8),_B(8)],[_F(6),_R(4)],[_F(4),_L(6)],[_B(6),_L(4)],[_B(4),_R(6)]]]})();centerColor=['U','R','F','D','L','B'];cornerColor=[['U','R','F'],['U','F','L'],['U','L','B'],['U','B','R'],['D','F','R'],['D','L','F'],['D','B','L'],['D','R','B']];edgeColor=[['U','R'],['U','F'],['U','L'],['U','B'],['D','R'],['D','F'],['D','L'],['D','B'],['F','R'],['F','L'],['B','L'],['B','R']];Cube=(function(){var faceNames,faceNums,parseAlg;class Cube{constructor(other){var x;if(other!=null){this.init(other)}else{this.identity()}this.newCenter=(function(){var k,results;results=[];for(x=k=0;k<=5;x=++k){results.push(0)}return results})();this.newCp=(function(){var k,results;results=[];for(x=k=0;k<=7;x=++k){results.push(0)}return results})();this.newEp=(function(){var k,results;results=[];for(x=k=0;k<=11;x=++k){results.push(0)}return results})();this.newCo=(function(){var k,results;results=[];for(x=k=0;k<=7;x=++k){results.push(0)}return results})();this.newEo=(function(){var k,results;results=[];for(x=k=0;k<=11;x=++k){results.push(0)}return results})()}init(state){this.center=state.center.slice(0);this.co=state.co.slice(0);this.ep=state.ep.slice(0);this.cp=state.cp.slice(0);return this.eo=state.eo.slice(0)}identity(){var x;this.center=[0,1,2,3,4,5];this.cp=[0,1,2,3,4,5,6,7];this.co=(function(){var k,results;results=[];for(x=k=0;k<=7;x=++k){results.push(0)}return results})();this.ep=[0,1,2,3,4,5,6,7,8,9,10,11];return this.eo=(function(){var k,results;results=[];for(x=k=0;k<=11;x=++k){results.push(0)}return results})()}toJSON(){return{center:this.center,cp:this.cp,co:this.co,ep:this.ep,eo:this.eo}}asString(){var corner,edge,i,k,l,m,n,o,ori,p,result;result=[];for(i=k=0;k<=5;i=++k){result[9*i+4]=centerColor[this.center[i]]}for(i=l=0;l<=7;i=++l){corner=this.cp[i];ori=this.co[i];for(n=m=0;m<=2;n=++m){result[cornerFacelet[i][(n+ori)%3]]=cornerColor[corner][n]}}for(i=o=0;o<=11;i=++o){edge=this.ep[i];ori=this.eo[i];for(n=p=0;p<=1;n=++p){result[edgeFacelet[i][(n+ori)%2]]=edgeColor[edge][n]}}return result.join('')}static fromString(str){var col1,col2,cube,i,j,k,l,m,o,ori,p,q,r,ref;cube=new Cube();for(i=k=0;k<=5;i=++k){for(j=l=0;l<=5;j=++l){if(str[9*i+4]===centerColor[j]){cube.center[i]=j}}}for(i=m=0;m<=7;i=++m){for(ori=o=0;o<=2;ori=++o){if((ref=str[cornerFacelet[i][ori]])==='U'||ref==='D'){break}}col1=str[cornerFacelet[i][(ori+1)%3]];col2=str[cornerFacelet[i][(ori+2)%3]];for(j=p=0;p<=7;j=++p){if(col1===cornerColor[j][1]&&col2===cornerColor[j][2]){cube.cp[i]=j;cube.co[i]=ori%3}}}for(i=q=0;q<=11;i=++q){for(j=r=0;r<=11;j=++r){if(str[edgeFacelet[i][0]]===edgeColor[j][0]&&str[edgeFacelet[i][1]]===edgeColor[j][1]){cube.ep[i]=j;cube.eo[i]=0;break}if(str[edgeFacelet[i][0]]===edgeColor[j][1]&&str[edgeFacelet[i][1]]===edgeColor[j][0]){cube.ep[i]=j;cube.eo[i]=1;break}}}return cube}clone(){return new Cube(this.toJSON())}static random(){return new Cube().randomize()}isSolved(){var c,cent,clone,e,k,l,m;clone=this.clone();clone.move(clone.upright());for(cent=k=0;k<=5;cent=++k){if(clone.center[cent]!==cent)return false}for(c=l=0;l<=7;c=++l){if(clone.cp[c]!==c)return false;if(clone.co[c]!==0)return false}for(e=m=0;m<=11;e=++m){if(clone.ep[e]!==e)return false;if(clone.eo[e]!==0)return false}return true}centerMultiply(other){var from,k,to;for(to=k=0;k<=5;to=++k){from=other.center[to];this.newCenter[to]=this.center[from]}[this.center,this.newCenter]=[this.newCenter,this.center];return this}cornerMultiply(other){var from,k,to;for(to=k=0;k<=7;to=++k){from=other.cp[to];this.newCp[to]=this.cp[from];this.newCo[to]=(this.co[from]+other.co[to])%3}[this.cp,this.newCp]=[this.newCp,this.cp];[this.co,this.newCo]=[this.newCo,this.co];return this}edgeMultiply(other){var from,k,to;for(to=k=0;k<=11;to=++k){from=other.ep[to];this.newEp[to]=this.ep[from];this.newEo[to]=(this.eo[from]+other.eo[to])%2}[this.ep,this.newEp]=[this.newEp,this.ep];[this.eo,this.newEo]=[this.newEo,this.eo];return this}multiply(other){this.centerMultiply(other);this.cornerMultiply(other);this.edgeMultiply(other);return this}move(arg){var face,k,l,len,move,power,ref,ref1,x;ref=parseAlg(arg);for(k=0,len=ref.length;k<len;k++){move=ref[k];face=move/3|0;power=move%3;for(x=l=0,ref1=power;(0<=ref1?l<=ref1:l>=ref1);x=0<=ref1?++l:--l){this.multiply(Cube.moves[face])}}return this}upright(){var clone,i,j,k,l,result;clone=this.clone();result=[];for(i=k=0;k<=5;i=++k){if(clone.center[i]===F)break}switch(i){case D:result.push("x");break;case U:result.push("x'");break;case B:result.push("x2");break;case R:result.push("y");break;case L:result.push("y'")}if(result.length){clone.move(result[0])}for(j=l=0;l<=5;j=++l){if(clone.center[j]===U)break}switch(j){case L:result.push("z");break;case R:result.push("z'");break;case D:result.push("z2")}return result.join(' ')}static inverse(arg){var face,k,len,move,power,result,str;result=(function(){var k,len,ref,results;ref=parseAlg(arg);results=[];for(k=0,len=ref.length;k<len;k++){move=ref[k];face=move/3|0;power=move%3;results.push(face*3+-(power-1)+1)}return results})();result.reverse();if(typeof arg==='string'){str='';for(k=0,len=result.length;k<len;k++){move=result[k];face=move/3|0;power=move%3;str+=faceNames[face];if(power===1)str+='2';else if(power===2)str+="'";str+=' '}return str.substring(0,str.length-1)}else if(arg.length!=null){return result}else{return result[0]}}};Cube.prototype.randomize=(function(){var arePermutationsValid,generateValidRandomOrientation,generateValidRandomPermutation,getNumSwaps,isOrientationValid,randint,randomizeOrientation,result,shuffle;randint=function(min,max){return min+Math.floor(Math.random()*(max-min+1))};shuffle=function(array){var currentIndex,randomIndex;currentIndex=array.length;while(currentIndex!==0){randomIndex=randint(0,currentIndex-1);currentIndex-=1;[array[currentIndex],array[randomIndex]]=[array[randomIndex],array[currentIndex]]}};getNumSwaps=function(arr){var cur,cycleLength,i,k,numSwaps,ref,seen,x;numSwaps=0;seen=(function(){var k,ref,results;results=[];for(x=k=0,ref=arr.length-1;(0<=ref?k<=ref:k>=ref);x=0<=ref?++k:--k){results.push(false)}return results})();while(true){cur=-1;for(i=k=0,ref=arr.length-1;(0<=ref?k<=ref:k>=ref);i=0<=ref?++k:--k){if(!seen[i]){cur=i;break}}if(cur===-1)break;cycleLength=0;while(!seen[cur]){seen[cur]=true;cycleLength++;cur=arr[cur]}numSwaps+=cycleLength+1}return numSwaps};arePermutationsValid=function(cp,ep){return(getNumSwaps(ep)+getNumSwaps(cp))%2===0};generateValidRandomPermutation=function(cp,ep){shuffle(ep);shuffle(cp);while(!arePermutationsValid(cp,ep)){shuffle(ep);shuffle(cp)}};randomizeOrientation=function(arr,n){var i,k,ref;for(i=k=0,ref=arr.length-1;(0<=ref?k<=ref:k>=ref);i=0<=ref?++k:--k){arr[i]=randint(0,n-1)}};isOrientationValid=function(arr,n){return arr.reduce(function(a,b){return a+b})%n===0};generateValidRandomOrientation=function(co,eo){randomizeOrientation(co,3);while(!isOrientationValid(co,3)){randomizeOrientation(co,3)}randomizeOrientation(eo,2);while(!isOrientationValid(eo,2)){randomizeOrientation(eo,2)}};result=function(){generateValidRandomPermutation(this.cp,this.ep);generateValidRandomOrientation(this.co,this.eo);return this};return result})();Cube.moves=[{center:[0,1,2,3,4,5],cp:[UBR,URF,UFL,ULB,DFR,DLF,DBL,DRB],co:[0,0,0,0,0,0,0,0],ep:[UB,UR,UF,UL,DR,DF,DL,DB,FR,FL,BL,BR],eo:[0,0,0,0,0,0,0,0,0,0,0,0]},{center:[0,1,2,3,4,5],cp:[DFR,UFL,ULB,URF,DRB,DLF,DBL,UBR],co:[2,0,0,1,1,0,0,2],ep:[FR,UF,UL,UB,BR,DF,DL,DB,DR,FL,BL,UR],eo:[0,0,0,0,0,0,0,0,0,0,0,0]},{center:[0,1,2,3,4,5],cp:[UFL,DLF,ULB,UBR,URF,DFR,DBL,DRB],co:[1,2,0,0,2,1,0,0],ep:[UR,FL,UL,UB,DR,FR,DL,DB,UF,DF,BL,BR],eo:[0,1,0,0,0,1,0,0,1,1,0,0]},{center:[0,1,2,3,4,5],cp:[URF,UFL,ULB,UBR,DLF,DBL,DRB,DFR],co:[0,0,0,0,0,0,0,0],ep:[UR,UF,UL,UB,DF,DL,DB,DR,FR,FL,BL,BR],eo:[0,0,0,0,0,0,0,0,0,0,0,0]},{center:[0,1,2,3,4,5],cp:[URF,ULB,DBL,UBR,DFR,UFL,DLF,DRB],co:[0,1,2,0,0,2,1,0],ep:[UR,UF,BL,UB,DR,DF,FL,DB,FR,UL,DL,BR],eo:[0,0,0,0,0,0,0,0,0,0,0,0]},{center:[0,1,2,3,4,5],cp:[URF,UFL,UBR,DRB,DFR,DLF,ULB,DBL],co:[0,0,1,2,0,0,2,1],ep:[UR,UF,UL,BR,DR,DF,DL,BL,FR,FL,UB,DB],eo:[0,0,0,1,0,0,0,1,0,0,1,1]},{center:[U,F,L,D,B,R],cp:[URF,UFL,ULB,UBR,DFR,DLF,DBL,DRB],co:[0,0,0,0,0,0,0,0],ep:[UR,UF,UL,UB,DR,DF,DL,DB,FL,BL,BR,FR],eo:[0,0,0,0,0,0,0,0,1,1,1,1]},{center:[B,R,U,F,L,D],cp:[URF,UFL,ULB,UBR,DFR,DLF,DBL,DRB],co:[0,0,0,0,0,0,0,0],ep:[UR,UB,UL,DB,DR,UF,DL,DF,FR,FL,BL,BR],eo:[0,1,0,1,0,1,0,1,0,0,0,0]},{center:[L,U,F,R,D,B],cp:[URF,UFL,ULB,UBR,DFR,DLF,DBL,DRB],co:[0,0,0,0,0,0,0,0],ep:[UL,UF,DL,UB,UR,DF,DR,DB,FR,FL,BL,BR],eo:[1,0,1,0,1,0,1,0,0,0,0,0]}];faceNums={U:0,R:1,F:2,D:3,L:4,B:5,E:6,M:7,S:8,x:9,y:10,z:11,u:12,r:13,f:14,d:15,l:16,b:17};faceNames={0:'U',1:'R',2:'F',3:'D',4:'L',5:'B',6:'E',7:'M',8:'S',9:'x',10:'y',11:'z',12:'u',13:'r',14:'f',15:'d',16:'l',17:'b'};parseAlg=function(arg){var k,len,move,part,power,ref,results;if(typeof arg==='string'){ref=arg.split(/\s+/);results=[];for(k=0,len=ref.length;k<len;k++){part=ref[k];if(part.length===0)continue;if(part.length>2)throw new Error("Invalid move: "+part);move=faceNums[part[0]];if(move===void 0)throw new Error("Invalid move: "+part);if(part.length===1)power=0;else{if(part[1]==='2')power=1;else if(part[1]==="'")power=2;else throw new Error("Invalid move: "+part)}results.push(move*3+power)}return results}else if(arg.length!=null){return arg}else{return[arg]}};Cube.moves.push(new Cube().move("R M' L'").toJSON());Cube.moves.push(new Cube().move("U E' D'").toJSON());Cube.moves.push(new Cube().move("F S B'").toJSON());Cube.moves.push(new Cube().move("U E'").toJSON());Cube.moves.push(new Cube().move("R M'").toJSON());Cube.moves.push(new Cube().move("F S").toJSON());Cube.moves.push(new Cube().move("D E").toJSON());Cube.moves.push(new Cube().move("L M").toJSON());Cube.moves.push(new Cube().move("B S'").toJSON());return Cube}).call(this);if(typeof module!=="undefined"&&module!==null){module.exports=Cube}else{this.Cube=Cube}}).call(this);
+(function(){var B,BL,BR,Cnk,Cube,D,DB,DBL,DF,DFR,DL,DLF,DR,DRB,F,FL,FR,Include,L,N_FLIP,N_FRtoBR,N_PARITY,N_SLICE1,N_SLICE2,N_TWIST,N_UBtoDF,N_URFtoDLF,N_URtoDF,N_URtoUL,R,U,UB,UBR,UF,UFL,UL,ULB,UR,URF,allMoves1,allMoves2,computeMoveTable,computePruningTable,faceNames,faceNums,factorial,key,max,mergeURtoDF,moveTableParams,nextMoves1,nextMoves2,permutationIndex,pruning,pruningTableParams,rotateLeft,rotateRight,value,indexOf=[].indexOf;Cube=this.Cube||require('./cube');[U,R,F,D,L,B]=[0,1,2,3,4,5];[URF,UFL,ULB,UBR,DFR,DLF,DBL,DRB]=[0,1,2,3,4,5,6,7];[UR,UF,UL,UB,DR,DF,DL,DB,FR,FL,BL,BR]=[0,1,2,3,4,5,6,7,8,9,10,11];Cnk=function(n,k){var i,j,s;if(n<k)return 0;if(k>n/2)k=n-k;s=1;i=n;j=1;while(i!==n-k){s*=i;s/=j;i--;j++}return s};factorial=function(n){var f,i,m,ref;f=1;for(i=m=2,ref=n;(2<=ref?m<=ref:m>=ref);i=2<=ref?++m:--m){f*=i}return f};max=function(a,b){return a>b?a:b};rotateLeft=function(array,l,r){var i,m,ref,ref1,tmp;tmp=array[l];for(i=m=ref=l,ref1=r-1;(ref<=ref1?m<=ref1:m>=ref1);i=ref<=ref1?++m:--m){array[i]=array[i+1]}return array[r]=tmp};rotateRight=function(array,l,r){var i,m,ref,ref1,tmp;tmp=array[r];for(i=m=ref=r,ref1=l+1;(ref<=ref1?m<=ref1:m>=ref1);i=ref<=ref1?++m:--m){array[i]=array[i-1]}return array[l]=tmp};permutationIndex=function(context,start,end,fromEnd){if(fromEnd==null)fromEnd=false;var i,maxAll,maxB,maxOur,our,permName;maxOur=end-start;maxB=factorial(maxOur+1);if(context==='corners'){maxAll=7;permName='cp'}else{maxAll=11;permName='ep'}our=(function(){var m,ref,results;results=[];for(i=m=0,ref=maxOur;(0<=ref?m<=ref:m>=ref);i=0<=ref?++m:--m){results.push(0)}return results})();return function(index){var a,b,c,j,k,m,o,p,perm,q,ref,ref1,ref10,ref2,ref3,ref4,ref5,ref6,ref7,ref8,ref9,t,u,w,x,y,z;if(index!=null){for(i=m=0,ref=maxOur;(0<=ref?m<=ref:m>=ref);i=0<=ref?++m:--m){our[i]=i+start}b=index%maxB;a=index/maxB|0;perm=this[permName];for(i=o=0,ref1=maxAll;(0<=ref1?o<=ref1:o>=ref1);i=0<=ref1?++o:--o){perm[i]=-1}for(j=p=1,ref2=maxOur;(1<=ref2?p<=ref2:p>=ref2);j=1<=ref2?++p:--p){k=b%(j+1);b=b/(j+1)|0;while(k>0){rotateRight(our,0,j);k--}}x=maxOur;if(fromEnd){for(j=q=0,ref3=maxAll;(0<=ref3?q<=ref3:q>=ref3);j=0<=ref3?++q:--q){c=Cnk(maxAll-j,x+1);if(a-c>=0){perm[j]=our[maxOur-x];a-=c;x--}}}else{for(j=t=ref4=maxAll;(ref4<=0?t<=0:t>=0);j=ref4<=0?++t:--t){c=Cnk(j,x+1);if(a-c>=0){perm[j]=our[x];a-=c;x--}}}return this}else{perm=this[permName];for(i=u=0,ref5=maxOur;(0<=ref5?u<=ref5:u>=ref5);i=0<=ref5?++u:--u){our[i]=-1}a=b=x=0;if(fromEnd){for(j=w=ref6=maxAll;(ref6<=0?w<=0:w>=0);j=ref6<=0?++w:--w){if((start<=(ref7=perm[j])&&ref7<=end)){a+=Cnk(maxAll-j,x+1);our[maxOur-x]=perm[j];x++}}}else{for(j=y=0,ref8=maxAll;(0<=ref8?y<=ref8:y>=ref8);j=0<=ref8?++y:--y){if((start<=(ref9=perm[j])&&ref9<=end)){a+=Cnk(j,x+1);our[x]=perm[j];x++}}}for(j=z=ref10=maxOur;(ref10<=0?z<=0:z>=0);j=ref10<=0?++z:--z){k=0;while(our[j]!==start+j){rotateLeft(our,0,j);k++}b=(j+1)*b+k}return a*maxB+b}}};Include={twist:function(twist){var i,m,o,ori,parity,v;if(twist!=null){parity=0;for(i=m=6;m>=0;i=--m){ori=twist%3;twist=(twist/3)|0;this.co[i]=ori;parity+=ori}this.co[7]=(3-parity%3)%3;return this}else{v=0;for(i=o=0;o<=6;i=++o){v=3*v+this.co[i]}return v}},flip:function(flip){var i,m,o,ori,parity,v;if(flip!=null){parity=0;for(i=m=10;m>=0;i=--m){ori=flip%2;flip=flip/2|0;this.eo[i]=ori;parity+=ori}this.eo[11]=(2-parity%2)%2;return this}else{v=0;for(i=o=0;o<=10;i=++o){v=2*v+this.eo[i]}return v}},cornerParity:function(){var i,j,m,o,ref,ref1,ref2,ref3,s;s=0;for(i=m=ref=DRB,ref1=URF+1;(ref<=ref1?m<=ref1:m>=ref1);i=ref<=ref1?++m:--m){for(j=o=ref2=i-1,ref3=URF;(ref2<=ref3?o<=ref3:o>=ref3);j=ref2<=ref3?++o:--o){if(this.cp[j]>this.cp[i])s++}}return s%2},edgeParity:function(){var i,j,m,o,ref,ref1,ref2,ref3,s;s=0;for(i=m=ref=BR,ref1=UR+1;(ref<=ref1?m<=ref1:m>=ref1);i=ref<=ref1?++m:--m){for(j=o=ref2=i-1,ref3=UR;(ref2<=ref3?o<=ref3:o>=ref3);j=ref2<=ref3?++o:--o){if(this.ep[j]>this.ep[i])s++}}return s%2},URFtoDLF:permutationIndex('corners',URF,DLF),URtoUL:permutationIndex('edges',UR,UL),UBtoDF:permutationIndex('edges',UB,DF),URtoDF:permutationIndex('edges',UR,DF),FRtoBR:permutationIndex('edges',FR,BR,true)};for(key in Include){value=Include[key];Cube.prototype[key]=value}computeMoveTable=function(context,coord,size){var apply,cube,i,inner,j,k,m,move,o,p,ref,results;apply=context==='corners'?'cornerMultiply':'edgeMultiply';cube=new Cube();results=[];for(i=m=0,ref=size-1;(0<=ref?m<=ref:m>=ref);i=0<=ref?++m:--m){cube[coord](i);inner=[];for(j=o=0;o<=5;j=++o){move=Cube.moves[j];for(k=p=0;p<=2;k=++p){cube[apply](move);inner.push(cube[coord]())}cube[apply](move)}results.push(inner)}return results};mergeURtoDF=(function(){var a,b;a=new Cube();b=new Cube();return function(URtoUL,UBtoDF){var i,m;a.URtoUL(URtoUL);b.UBtoDF(UBtoDF);for(i=m=0;m<=7;i=++m){if(a.ep[i]!==-1){if(b.ep[i]!==-1)return-1;else b.ep[i]=a.ep[i]}}return b.URtoDF()}})();N_TWIST=2187;N_FLIP=2048;N_PARITY=2;N_FRtoBR=11880;N_SLICE1=495;N_SLICE2=24;N_URFtoDLF=20160;N_URtoDF=20160;N_URtoUL=1320;N_UBtoDF=1320;Cube.moveTables={parity:[[1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1],[0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0]],twist:null,flip:null,FRtoBR:null,URFtoDLF:null,URtoDF:null,URtoUL:null,UBtoDF:null,mergeURtoDF:null};moveTableParams={twist:['corners',N_TWIST],flip:['edges',N_FLIP],FRtoBR:['edges',N_FRtoBR],URFtoDLF:['corners',N_URFtoDLF],URtoDF:['edges',N_URtoDF],URtoUL:['edges',N_URtoUL],UBtoDF:['edges',N_UBtoDF],mergeURtoDF:[]};Cube.computeMoveTables=function(){var len,m,name,scope,size,tableName,tables;tables=arguments.length?Array.from(arguments):(function(){var results;results=[];for(name in moveTableParams){results.push(name)}return results})();for(m=0,len=tables.length;m<len;m++){tableName=tables[m];if(this.moveTables[tableName]!==null)continue;if(tableName==='mergeURtoDF'){this.moveTables.mergeURtoDF=(function(){var UBtoDF,URtoUL,o,results;results=[];for(URtoUL=o=0;o<=335;URtoUL=++o){results.push((function(){var p,results1;results1=[];for(UBtoDF=p=0;p<=335;UBtoDF=++p){results1.push(mergeURtoDF(URtoUL,UBtoDF))}return results1})())}return results})()}else{[scope,size]=moveTableParams[tableName];this.moveTables[tableName]=computeMoveTable(scope,tableName,size)}}return this};allMoves1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17];nextMoves1=(function(){var face,lastFace,m,next,o,p,power,results;results=[];for(lastFace=m=0;m<=5;lastFace=++m){next=[];for(face=o=0;o<=5;face=++o){if(face!==lastFace&&face!==lastFace-3){for(power=p=0;p<=2;power=++p){next.push(face*3+power)}}}results.push(next)}return results})();allMoves2=[0,1,2,4,7,9,10,11,13,16];nextMoves2=(function(){var face,lastFace,len,m,next,o,p,power,powers,results;results=[];for(lastFace=m=0;m<=5;lastFace=++m){next=[];for(face=o=0;o<=5;face=++o){if(!(face!==lastFace&&face!==lastFace-3))continue;powers=face===0||face===3?[0,1,2]:[1];for(p=0,len=powers.length;p<len;p++){power=powers[p];next.push(face*3+power)}}results.push(next)}return results})();pruning=function(table,index,value){var pos,shift,slot;pos=index%8;slot=index>>3;shift=pos<<2;if(value!=null){table[slot]&=~(0xF<<shift);table[slot]|=value<<shift;return value}else{return(table[slot]&(0xF<<shift))>>>shift}};computePruningTable=function(phase,size,currentCoords,nextIndex){var current,depth,done,index,len,m,move,moves,next,o,ref,table,x;table=(function(){var m,ref,results;results=[];for(x=m=0,ref=Math.ceil(size/8)-1;(0<=ref?m<=ref:m>=ref);x=0<=ref?++m:--m){results.push(0xFFFFFFFF)}return results})();if(phase===1)moves=allMoves1;else moves=allMoves2;depth=0;pruning(table,0,depth);done=1;while(done!==size){for(index=m=0,ref=size-1;(0<=ref?m<=ref:m>=ref);index=0<=ref?++m:--m){if(!(pruning(table,index)===depth))continue;current=currentCoords(index);for(o=0,len=moves.length;o<len;o++){move=moves[o];next=nextIndex(current,move);if(pruning(table,next)===0xF){pruning(table,next,depth+1);done++}}}depth++}return table};Cube.pruningTables={sliceTwist:null,sliceFlip:null,sliceURFtoDLFParity:null,sliceURtoDFParity:null};pruningTableParams={sliceTwist:[1,N_SLICE1*N_TWIST,function(index){return[index%N_SLICE1,index/N_SLICE1|0]},function(current,move){var newSlice,newTwist,slice,twist;[slice,twist]=current;newSlice=Cube.moveTables.FRtoBR[slice*24][move]/24|0;newTwist=Cube.moveTables.twist[twist][move];return newTwist*N_SLICE1+newSlice}],sliceFlip:[1,N_SLICE1*N_FLIP,function(index){return[index%N_SLICE1,index/N_SLICE1|0]},function(current,move){var flip,newFlip,newSlice,slice;[slice,flip]=current;newSlice=Cube.moveTables.FRtoBR[slice*24][move]/24|0;newFlip=Cube.moveTables.flip[flip][move];return newFlip*N_SLICE1+newSlice}],sliceURFtoDLFParity:[2,N_SLICE2*N_URFtoDLF*N_PARITY,function(index){return[index%2,(index/2|0)%N_SLICE2,(index/2|0)/N_SLICE2|0]},function(current,move){var URFtoDLF,newParity,newSlice,newURFtoDLF,parity,slice;[parity,slice,URFtoDLF]=current;newParity=Cube.moveTables.parity[parity][move];newSlice=Cube.moveTables.FRtoBR[slice][move];newURFtoDLF=Cube.moveTables.URFtoDLF[URFtoDLF][move];return(newURFtoDLF*N_SLICE2+newSlice)*2+newParity}],sliceURtoDFParity:[2,N_SLICE2*N_URtoDF*N_PARITY,function(index){return[index%2,(index/2|0)%N_SLICE2,(index/2|0)/N_SLICE2|0]},function(current,move){var URtoDF,newParity,newSlice,newURtoDF,parity,slice;[parity,slice,URtoDF]=current;newParity=Cube.moveTables.parity[parity][move];newSlice=Cube.moveTables.FRtoBR[slice][move];newURtoDF=Cube.moveTables.URtoDF[URtoDF][move];return(newURtoDF*N_SLICE2+newSlice)*2+newParity}]};Cube.computePruningTables=function(){var len,m,name,params,tableName,tables;tables=arguments.length?Array.from(arguments):(function(){var results;results=[];for(name in pruningTableParams){results.push(name)}return results})();for(m=0,len=tables.length;m<len;m++){tableName=tables[m];if(this.pruningTables[tableName]!==null)continue;params=pruningTableParams[tableName];this.pruningTables[tableName]=computePruningTable.apply(null,params)}return this};Cube.initSolver=function(){Cube.computeMoveTables();return Cube.computePruningTables()};Cube.prototype.solveUpright=function(maxDepth){if(maxDepth==null)maxDepth=22;var State,freeStates,moveNames,phase1,phase1search,phase2,phase2search,solution,state,x;moveNames=(function(){var face,faceName,m,o,power,powerName,result;faceName=['U','R','F','D','L','B'];powerName=['','2',"'"];result=[];for(face=m=0;m<=5;face=++m){for(power=o=0;o<=2;power=++o){result.push(faceName[face]+powerName[power])}}return result})();State=class State{constructor(cube){this.parent=null;this.lastMove=null;this.depth=0;if(cube)this.init(cube)}init(cube){this.flip=cube.flip();this.twist=cube.twist();this.slice=cube.FRtoBR()/N_SLICE2|0;this.parity=cube.cornerParity();this.URFtoDLF=cube.URFtoDLF();this.FRtoBR=cube.FRtoBR();this.URtoUL=cube.URtoUL();this.UBtoDF=cube.UBtoDF();return this}solution(){if(this.parent)return this.parent.solution()+moveNames[this.lastMove]+' ';else return''}move(table,index,move){return Cube.moveTables[table][index][move]}pruning(table,index){return pruning(Cube.pruningTables[table],index)}moves1(){if(this.lastMove!==null)return nextMoves1[this.lastMove/3|0];else return allMoves1}minDist1(){var d1,d2;d1=this.pruning('sliceFlip',N_SLICE1*this.flip+this.slice);d2=this.pruning('sliceTwist',N_SLICE1*this.twist+this.slice);return max(d1,d2)}next1(move){var next;next=freeStates.pop();next.parent=this;next.lastMove=move;next.depth=this.depth+1;next.flip=this.move('flip',this.flip,move);next.twist=this.move('twist',this.twist,move);next.slice=this.move('FRtoBR',this.slice*24,move)/24|0;return next}moves2(){if(this.lastMove!==null)return nextMoves2[this.lastMove/3|0];else return allMoves2}minDist2(){var d1,d2,index1,index2;index1=(N_SLICE2*this.URtoDF+this.FRtoBR)*N_PARITY+this.parity;d1=this.pruning('sliceURtoDFParity',index1);index2=(N_SLICE2*this.URFtoDLF+this.FRtoBR)*N_PARITY+this.parity;d2=this.pruning('sliceURFtoDLFParity',index2);return max(d1,d2)}init2(top){if(top==null)top=true;if(this.parent===null)return;this.parent.init2(false);this.URFtoDLF=this.move('URFtoDLF',this.parent.URFtoDLF,this.lastMove);this.FRtoBR=this.move('FRtoBR',this.parent.FRtoBR,this.lastMove);this.parity=this.move('parity',this.parent.parity,this.lastMove);this.URtoUL=this.move('URtoUL',this.parent.URtoUL,this.lastMove);this.UBtoDF=this.move('UBtoDF',this.parent.UBtoDF,this.lastMove);if(top)return this.URtoDF=this.move('mergeURtoDF',this.URtoUL,this.UBtoDF)}next2(move){var next;next=freeStates.pop();next.parent=this;next.lastMove=move;next.depth=this.depth+1;next.URFtoDLF=this.move('URFtoDLF',this.URFtoDLF,move);next.FRtoBR=this.move('FRtoBR',this.FRtoBR,move);next.parity=this.move('parity',this.parity,move);next.URtoDF=this.move('URtoDF',this.URtoDF,move);return next}};solution=null;phase1search=function(state){var depth,m,ref;for(depth=m=1,ref=maxDepth;(1<=ref?m<=ref:m>=ref);depth=1<=ref?++m:--m){phase1(state,depth);if(solution!==null)break}};phase1=function(state,depth){var len,m,move,next,ref,ref1;if(depth===0){if(state.minDist1()===0){if(state.lastMove===null||indexOf.call(allMoves2,state.lastMove)<0){return phase2search(state)}}}else if(depth>0){if(state.minDist1()<=depth){ref1=state.moves1();for(m=0,len=ref1.length;m<len;m++){move=ref1[m];next=state.next1(move);phase1(next,depth-1);freeStates.push(next);if(solution!==null)break}}}};phase2search=function(state){var depth,m,ref;state.init2();for(depth=m=1,ref=maxDepth-state.depth;(1<=ref?m<=ref:m>=ref);depth=1<=ref?++m:--m){phase2(state,depth);if(solution!==null)break}};phase2=function(state,depth){var len,m,move,next,ref;if(depth===0){if(state.minDist2()===0)return solution=state.solution()}else if(depth>0){if(state.minDist2()<=depth){ref=state.moves2();for(m=0,len=ref.length;m<len;m++){move=ref[m];next=state.next2(move);phase2(next,depth-1);freeStates.push(next);if(solution!==null)break}}}};freeStates=(function(){var m,ref,results;results=[];for(x=m=0,ref=maxDepth+1;(0<=ref?m<=ref:m>=ref);x=0<=ref?++m:--m){results.push(new State())}return results})();state=freeStates.pop().init(this);phase1search(state);freeStates.push(state);if(solution==null)return null;return solution.trim()};faceNums={U:0,R:1,F:2,D:3,L:4,B:5};faceNames={0:'U',1:'R',2:'F',3:'D',4:'L',5:'B'};Cube.prototype.solve=function(maxDepth){if(maxDepth==null)maxDepth=22;var clone,len,m,move,ref,rotation,solution,upright,uprightSolution;clone=this.clone();upright=clone.upright();clone.move(upright);rotation=new Cube().move(upright).center;uprightSolution=clone.solveUpright(maxDepth);if(uprightSolution==null)return null;solution=[];ref=uprightSolution.split(' ');for(m=0,len=ref.length;m<len;m++){move=ref[m];solution.push(faceNames[rotation[faceNums[move[0]]]]);if(move.length>1)solution[solution.length-1]+=move[1]}return solution.join(' ')};Cube.scramble=function(){return Cube.inverse(Cube.random().solve())}}).call(this);
+</script>
+
+<!-- ============================================================ -->
+<!-- APPLICATION LOGIC                                             -->
+<!-- ============================================================ -->
+<script>
+/*
+  KEY ARCHITECTURE DECISION:
+  
+  The cube state is stored as a cubejs Cube OBJECT at all times (not a display array).
+  We only derive the display colors when rendering the 3D cube or updating the 2D net.
+  
+  This means:
+  - Moves are applied via cube.move() — always correct
+  - The display is derived from cube.asString() — always consistent
+  - The saved initial state is a cube.toJSON() snapshot — always restorable
+  - No lossy color↔face conversions happen during solving/stepping
+  
+  The only time we convert colors→cubejs is when the user FINISHES painting
+  and clicks Solve. At that point we read the 54 painted cells, build a
+  cubejs facelet string (mapping colors to face letters using the centers),
+  and create a Cube via fromString(). From then on, everything is cubejs native.
+*/
+
+const DISPLAY_COLORS = {W:'#ffffff',Y:'#ffd700',R:'#dc3545',O:'#ff8c00',B:'#003da5',G:'#009b48'};
+const COLOR_NAMES = {W:'White',Y:'Yellow',R:'Red',O:'Orange',B:'Blue',G:'Green'};
+const ALL_COLOR_KEYS = ['W','Y','R','O','B','G'];
+
+// Standard mapping: cubejs face letter → display color (for a standard-orientation cube)
+const FACE_TO_COLOR = {U:'W', R:'R', F:'G', D:'Y', L:'O', B:'B'};
+
+// Derive display array (54 color letters) from a cubejs facelet string
+function cubeStringToColors(str) {
+  // Read what face letter is at each center position to build the mapping
+  const centerPos = [4, 13, 22, 31, 40, 49];
+  const faceLabels = ['U','R','F','D','L','B'];
+  const faceToColor = {};
+  for (let i = 0; i < 6; i++) {
+    // The center at position centerPos[i] tells us which face letter represents this face
+    // Map it to the standard color for that physical face position
+    faceToColor[str[centerPos[i]]] = FACE_TO_COLOR[faceLabels[i]];
+  }
+  return str.split('').map(ch => faceToColor[ch]);
+}
+
+// Convert user-painted color array (54 colors) → cubejs facelet string
+function colorsToCubeString(colors) {
+  const centerPos = [4, 13, 22, 31, 40, 49];
+  const faceLabels = ['U','R','F','D','L','B'];
+  const colorToFace = {};
+  for (let i = 0; i < 6; i++) {
+    colorToFace[colors[centerPos[i]]] = faceLabels[i];
+  }
+  return colors.map(c => colorToFace[c]).join('');
+}
+
+// ====== STATE ======
+let cubeObj = new Cube();         // The cubejs Cube object (source of truth during solving)
+let paintedColors = [];            // 54-element display color array (source of truth during painting)
+let mode = 'paint';                // 'paint' or 'solve'
+let selectedColor = 'W';
+let solveSteps = [];
+let currentStep = -1;
+let isPlaying = false;
+let playTimer = null;
+let savedCubeJSON = null;          // cube state snapshot at solve start
+let solverReady = false;
+
+// 3D
+let canvas, ctx;
+let rotX = -25, rotY = 35;
+let dragging = false, dragSX, dragSY, dragRX, dragRY;
+let animFace = null, animAngle = 0, animTarget = 0, animDir = 1;
+let animating = false, animCallback = null;
+let LAYER_SETS = null;
+
+// ====== GET CURRENT DISPLAY COLORS ======
+function getDisplayColors() {
+  if (mode === 'paint') return paintedColors;
+  // In solve mode, derive from the live cubejs object
+  return cubeStringToColors(cubeObj.asString());
+}
+
+// ====== INIT ======
+function init() {
+  canvas = document.getElementById('cube-canvas');
+  ctx = canvas.getContext('2d');
+  resetToSolved();
+  buildNet();
+  setupSwatches();
+  setupCanvasEvents();
+  resizeCanvas();
+  updateColorCounts();
+  window.addEventListener('resize', resizeCanvas);
+  requestAnimationFrame(renderLoop);
+
+  setStatus('Initializing solver (a few seconds)...', 'info');
+  setTimeout(() => {
+    try {
+      Cube.initSolver();
+      solverReady = true;
+      LAYER_SETS = buildLayerSets();
+      setStatus('Solver ready! Paint faces or click Random Scramble, then Solve.', 'success');
+    } catch(e) {
+      console.error(e);
+      setStatus('Solver initialization failed.', 'error');
+    }
+  }, 50);
+}
+
+function resetToSolved() {
+  mode = 'paint';
+  paintedColors = [];
+  const fc = ['W','R','G','Y','O','B']; // U R F D L B
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 9; i++) paintedColors.push(fc[f]);
+  cubeObj = new Cube();
+}
+
+function resizeCanvas() {
+  const cont = document.getElementById('cube-container');
+  canvas.width = cont.clientWidth * window.devicePixelRatio;
+  canvas.height = cont.clientHeight * window.devicePixelRatio;
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+
+// ====== LAYER SETS for animation (derived from cubejs) ======
+function buildLayerSets() {
+  const layers = {};
+  for (const face of ['U','R','F','D','L','B']) {
+    const solvedStr = new Cube().asString();
+    const movedStr = new Cube().move(face).asString();
+    const set = new Set();
+    for (let i = 0; i < 54; i++) {
+      if (solvedStr[i] !== movedStr[i]) set.add(i);
+    }
+    layers[face] = set;
+  }
+  return layers;
+}
+
+// ====== SWATCHES ======
+function setupSwatches() {
+  document.querySelectorAll('.color-swatch').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      selectedColor = el.dataset.color;
+    });
+  });
+}
+
+// ====== COLOR COUNTER ======
+function updateColorCounts() {
+  const colors = getDisplayColors();
+  const counts = {W:0,Y:0,R:0,O:0,B:0,G:0};
+  colors.forEach(c => counts[c]++);
+  const el = document.getElementById('color-counts');
+  el.innerHTML = '';
+  for (const c of ALL_COLOR_KEYS) {
+    const ok = counts[c] === 9;
+    const div = document.createElement('div');
+    div.className = 'color-count ' + (ok ? 'ok' : 'bad');
+    div.innerHTML = `<span class="dot" style="background:${DISPLAY_COLORS[c]}"></span>${counts[c]}/9`;
+    el.appendChild(div);
+  }
+}
+
+// ====== 2D NET ======
+const NET_LAYOUT = [
+  {face:'U', cls:'top',    label:'Up (White)',     offset:0},
+  {face:'L', cls:'left',   label:'Left (Orange)',  offset:36},
+  {face:'F', cls:'front',  label:'Front (Green)',  offset:18},
+  {face:'R', cls:'right',  label:'Right (Red)',    offset:9},
+  {face:'B', cls:'back',   label:'Back (Blue)',    offset:45},
+  {face:'D', cls:'bottom', label:'Down (Yellow)',  offset:27},
+];
+
+function buildNet() {
+  const net = document.getElementById('cube-net');
+  net.innerHTML = '';
+  const colors = getDisplayColors();
+  NET_LAYOUT.forEach(({face, cls, label, offset}) => {
+    const grid = document.createElement('div');
+    grid.className = `face-grid ${cls}`;
+    grid.dataset.label = label;
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'face-cell';
+      cell.dataset.absIdx = offset + i;
+      cell.style.background = DISPLAY_COLORS[colors[offset + i]];
+      cell.addEventListener('click', () => {
+        if (mode !== 'paint') return; // no editing during solve
+        paintedColors[offset + i] = selectedColor;
+        cell.style.background = DISPLAY_COLORS[selectedColor];
+        updateColorCounts();
+      });
+      grid.appendChild(cell);
+    }
+    net.appendChild(grid);
+  });
+}
+
+function syncNet() {
+  const colors = getDisplayColors();
+  document.querySelectorAll('.face-cell').forEach(cell => {
+    const idx = parseInt(cell.dataset.absIdx);
+    cell.style.background = DISPLAY_COLORS[colors[idx]];
+  });
+  updateColorCounts();
+}
+
+// ====== 3D RENDERING ======
+function project(x, y, z) {
+  const cw = canvas.width / window.devicePixelRatio;
+  const ch = canvas.height / window.devicePixelRatio;
+  const rx = rotX * Math.PI / 180, ry = rotY * Math.PI / 180;
+  let x1 = x * Math.cos(ry) - z * Math.sin(ry);
+  let z1 = x * Math.sin(ry) + z * Math.cos(ry);
+  let y2 = y * Math.cos(rx) - z1 * Math.sin(rx);
+  let z2 = y * Math.sin(rx) + z1 * Math.cos(rx);
+  const sc = 300 / (z2 + 7);
+  return {x: cw/2 + x1*sc, y: ch/2 + y2*sc, z: z2};
+}
+
+function rotatePoint(pt, face) {
+  let [x,y,z] = pt;
+  const a = animAngle * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  switch(face) {
+    case 'U': return [x*c+z*s, y, -x*s+z*c];
+    case 'D': return [x*c-z*s, y, x*s+z*c];
+    case 'R': return [x, y*c-z*s, y*s+z*c];
+    case 'L': return [x, y*c+z*s, -y*s+z*c];
+    case 'F': return [x*c+y*s, -x*s+y*c, z];
+    case 'B': return [x*c-y*s, x*s+y*c, z];
+  }
+  return pt;
+}
+
+function getStickerCorners(face, row, col) {
+  const sz = 0.9, g = 1.0, base = -1.5;
+  const cx = base + col*g + g/2, cy = base + row*g + g/2, hs = sz/2;
+  switch(face) {
+    case 'U': return [[cx-hs,-1.5,cy-hs],[cx+hs,-1.5,cy-hs],[cx+hs,-1.5,cy+hs],[cx-hs,-1.5,cy+hs]];
+    case 'D': return [[cx-hs,1.5,-cy+hs],[cx+hs,1.5,-cy+hs],[cx+hs,1.5,-cy-hs],[cx-hs,1.5,-cy-hs]];
+    case 'F': return [[cx-hs,cy-hs,1.5],[cx+hs,cy-hs,1.5],[cx+hs,cy+hs,1.5],[cx-hs,cy+hs,1.5]];
+    case 'B': return [[-(cx-hs),cy-hs,-1.5],[-(cx+hs),cy-hs,-1.5],[-(cx+hs),cy+hs,-1.5],[-(cx-hs),cy+hs,-1.5]];
+    case 'R': return [[1.5,cy-hs,-(cx-hs)],[1.5,cy-hs,-(cx+hs)],[1.5,cy+hs,-(cx+hs)],[1.5,cy+hs,-(cx-hs)]];
+    case 'L': return [[-1.5,cy-hs,cx-hs],[-1.5,cy-hs,cx+hs],[-1.5,cy+hs,cx+hs],[-1.5,cy+hs,cx-hs]];
+  }
+}
+
+function get3DQuads() {
+  const quads = [];
+  const colors = getDisplayColors();
+  const faces = ['U','R','F','D','L','B'];
+  const offsets = {U:0,R:9,F:18,D:27,L:36,B:45};
+
+  faces.forEach(face => {
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const absIdx = offsets[face] + row * 3 + col;
+        let corners = getStickerCorners(face, row, col);
+        if (animFace && animAngle !== 0 && LAYER_SETS && LAYER_SETS[animFace].has(absIdx)) {
+          corners = corners.map(pt => rotatePoint(pt, animFace));
+        }
+        const proj = corners.map(pt => project(pt[0], pt[1], pt[2]));
+        const avgZ = proj.reduce((s,p) => s + p.z, 0) / 4;
+        quads.push({proj, color: DISPLAY_COLORS[colors[absIdx]], avgZ});
+      }
+    }
+  });
+  return quads;
+}
+
+function renderCube() {
+  const cw = canvas.width / window.devicePixelRatio;
+  const ch = canvas.height / window.devicePixelRatio;
+  ctx.clearRect(0, 0, cw, ch);
+  const quads = get3DQuads();
+  quads.sort((a,b) => b.avgZ - a.avgZ);
+  quads.forEach(q => {
+    ctx.beginPath();
+    ctx.moveTo(q.proj[0].x, q.proj[0].y);
+    for (let i = 1; i < 4; i++) ctx.lineTo(q.proj[i].x, q.proj[i].y);
+    ctx.closePath();
+    ctx.fillStyle = q.color;
+    ctx.fill();
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  });
+}
+
+function renderLoop() {
+  if (animFace && animating) {
+    const sp = 2 + parseInt(document.getElementById('speed-slider').value) * 2.5;
+    if (Math.abs(animAngle - animTarget) > sp) {
+      animAngle += animDir * sp;
+    } else {
+      animAngle = animTarget;
+      animating = false;
+      const cb = animCallback;
+      animFace = null; animAngle = 0; animTarget = 0; animCallback = null;
+      if (cb) cb();
+    }
+  }
+  renderCube();
+  requestAnimationFrame(renderLoop);
+}
+
+// ====== ANIMATED MOVE ======
+function applyMoveAnimated(moveStr, callback) {
+  const face = moveStr[0];
+  const prime = moveStr.includes("'");
+  const double = moveStr.includes("2");
+  let angle = -90;
+  if (prime) angle = 90;
+  if (double) angle = -180;
+  const signMap = {U:-1, D:1, R:1, L:-1, F:1, B:-1};
+  angle *= signMap[face];
+
+  animFace = face;
+  animAngle = 0;
+  animTarget = angle;
+  animDir = angle > 0 ? 1 : -1;
+  animating = true;
+  animCallback = () => {
+    // Apply the move to the cubejs object (THE source of truth in solve mode)
+    cubeObj.move(moveStr);
+    syncNet();
+    if (callback) callback();
+  };
+}
+
+// ====== CANVAS DRAG ======
+function setupCanvasEvents() {
+  canvas.addEventListener('mousedown', e => {dragging=true;dragSX=e.clientX;dragSY=e.clientY;dragRX=rotX;dragRY=rotY});
+  canvas.addEventListener('mousemove', e => {if(!dragging)return;rotY=dragRY+(e.clientX-dragSX)*.5;rotX=dragRX+(e.clientY-dragSY)*.5;rotX=Math.max(-89,Math.min(89,rotX))});
+  canvas.addEventListener('mouseup',()=>dragging=false);
+  canvas.addEventListener('mouseleave',()=>dragging=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];dragging=true;dragSX=t.clientX;dragSY=t.clientY;dragRX=rotX;dragRY=rotY},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!dragging)return;const t=e.touches[0];rotY=dragRY+(t.clientX-dragSX)*.5;rotX=dragRX+(t.clientY-dragSY)*.5;rotX=Math.max(-89,Math.min(89,rotX))},{passive:false});
+  canvas.addEventListener('touchend',()=>dragging=false);
+}
+
+// ====== VALIDATION ======
+function validatePaintedColors() {
+  const counts = {W:0,Y:0,R:0,O:0,B:0,G:0};
+  paintedColors.forEach(c => counts[c]++);
+  for (const c of ALL_COLOR_KEYS) {
+    if (counts[c] !== 9) return `Need exactly 9 of each color. ${COLOR_NAMES[c]} has ${counts[c]}.`;
+  }
+  const centers = [paintedColors[4],paintedColors[13],paintedColors[22],paintedColors[31],paintedColors[40],paintedColors[49]];
+  if (new Set(centers).size !== 6) return 'Each face must have a unique center color.';
+  return null;
+}
+
+// ====== SOLVE ======
+function solveCube() {
+  if (animating || isPlaying) return;
+  if (!solverReady) { setStatus('Solver still initializing, please wait...', 'info'); return; }
+
+  const err = validatePaintedColors();
+  if (err) { setStatus(err, 'error'); return; }
+
+  const cubeStr = colorsToCubeString(paintedColors);
+  setStatus('Solving...', 'info');
+
+  setTimeout(() => {
+    try {
+      cubeObj = Cube.fromString(cubeStr);
+
+      if (cubeObj.isSolved()) {
+        setStatus('Cube is already solved!', 'success');
+        return;
+      }
+
+      const solution = cubeObj.solve();
+
+      if (!solution) {
+        setStatus('Unsolvable — this sticker combination cannot exist on a real cube.', 'error');
+        return;
+      }
+
+      const moves = solution.split(/\s+/).filter(m => m.length > 0);
+
+      // Save the initial cube state (as cubejs JSON) for perfect restoration
+      // We need to re-create cubeObj from the string since .solve() doesn't mutate it,
+      // but we already have it.
+      cubeObj = Cube.fromString(cubeStr);
+      savedCubeJSON = cubeObj.toJSON();
+
+      solveSteps = moves;
+      currentStep = -1;
+      mode = 'solve';
+
+      buildStepsList(moves);
+      setStatus(`Solution found: ${moves.length} moves!`, 'success');
+      document.getElementById('prev-btn').disabled = false;
+      document.getElementById('play-btn').disabled = false;
+      document.getElementById('next-btn').disabled = false;
+      updateProgress();
+    } catch(e) {
+      console.error('Solver error:', e);
+      setStatus('Invalid cube state — check that stickers are placed correctly.', 'error');
+    }
+  }, 20);
+}
+
+// ====== STEP LIST ======
+function describeMove(m) {
+  const names = {U:'Top',D:'Bottom',F:'Front',B:'Back',R:'Right',L:'Left'};
+  const dir = m.includes('2') ? '180°' : m.includes("'") ? 'counter-clockwise' : 'clockwise';
+  return `Rotate ${names[m[0]]} face ${dir}`;
+}
+
+function buildStepsList(moves) {
+  const c = document.getElementById('steps-container');
+  c.innerHTML = '';
+  moves.forEach((m,i) => {
+    const d = document.createElement('div');
+    d.className = 'step-item';
+    d.id = 'step-'+i;
+    d.innerHTML = `<div class="step-num">${i+1}</div><div class="step-move">${m}</div><div class="step-desc">${describeMove(m)}</div>`;
+    d.onclick = () => goToStep(i);
+    c.appendChild(d);
+  });
+}
+
+// ====== STEP NAVIGATION ======
+function restoreToStepState(targetStep) {
+  // Perfectly restore cube to the state after applying moves 0..targetStep
+  // by restoring the saved initial state and replaying
+  cubeObj = new Cube(savedCubeJSON);
+  for (let i = 0; i <= targetStep; i++) {
+    cubeObj.move(solveSteps[i]);
+  }
+}
+
+function nextStep() {
+  if (animating || currentStep >= solveSteps.length - 1) return;
+  currentStep++;
+  applyMoveAnimated(solveSteps[currentStep], () => {
+    updateStepUI(); updateProgress();
+    if (currentStep === solveSteps.length - 1) showCongrats();
+  });
+}
+
+function prevStep() {
+  if (animating || currentStep < 0) return;
+  const rev = reverseMove(solveSteps[currentStep]);
+  currentStep--;
+  // Instead of applying reverse move (which can accumulate floating-point drift),
+  // restore perfectly from saved state
+  restoreToStepState(currentStep);
+  syncNet();
+  updateStepUI();
+  updateProgress();
+}
+
+function reverseMove(m) {
+  if (m.includes('2')) return m;
+  if (m.includes("'")) return m[0];
+  return m[0] + "'";
+}
+
+function goToStep(target) {
+  if (animating || !savedCubeJSON) return;
+  restoreToStepState(target);
+  syncNet();
+  currentStep = target;
+  updateStepUI(); updateProgress();
+}
+
+function togglePlay() { isPlaying ? stopPlay() : startPlay(); }
+
+function startPlay() {
+  if (currentStep >= solveSteps.length - 1) {
+    cubeObj = new Cube(savedCubeJSON);
+    syncNet();
+    currentStep = -1;
+  }
+  isPlaying = true;
+  document.getElementById('play-btn').innerHTML = '&#10074;&#10074; Pause';
+  playNext();
+}
+
+function playNext() {
+  if (!isPlaying || currentStep >= solveSteps.length - 1) {
+    stopPlay();
+    if (currentStep >= solveSteps.length - 1) showCongrats();
+    return;
+  }
+  currentStep++;
+  applyMoveAnimated(solveSteps[currentStep], () => {
+    updateStepUI(); updateProgress();
+    if (isPlaying) {
+      const dl = Math.max(80, 550 - document.getElementById('speed-slider').value * 50);
+      playTimer = setTimeout(playNext, dl);
+    }
+  });
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearTimeout(playTimer);
+  document.getElementById('play-btn').innerHTML = '&#9654; Play';
+}
+
+function updateStepUI() {
+  document.querySelectorAll('.step-item').forEach((el,i) => {
+    el.className = 'step-item';
+    if (i < currentStep) el.classList.add('completed');
+    if (i === currentStep) { el.classList.add('active'); el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  });
+}
+
+function updateProgress() {
+  const p = solveSteps.length > 0 ? ((currentStep+1)/solveSteps.length)*100 : 0;
+  document.getElementById('progress-fill').style.width = p + '%';
+}
+
+// ====== UI HELPERS ======
+function setStatus(t, type) {
+  const e = document.getElementById('status');
+  e.textContent = t;
+  e.className = 'status-bar status-' + type;
+}
+
+function resetCube() {
+  stopPlay();
+  solveSteps = []; currentStep = -1; savedCubeJSON = null;
+  animFace = null; animating = false;
+  resetToSolved();
+  buildNet();
+  updateColorCounts();
+  document.getElementById('steps-container').innerHTML = '<p style="color:#555;text-align:center;padding:30px 0;">Steps appear here after solving.</p>';
+  document.getElementById('prev-btn').disabled = true;
+  document.getElementById('play-btn').disabled = true;
+  document.getElementById('next-btn').disabled = true;
+  document.getElementById('progress-fill').style.width = '0%';
+  setStatus(solverReady ? 'Solver ready! Paint faces or click Random Scramble.' : 'Initializing solver...', solverReady ? 'success' : 'info');
+}
+
+function randomizeCube() {
+  if (!solverReady) { setStatus('Solver still initializing...', 'info'); return; }
+  stopPlay();
+  solveSteps = []; currentStep = -1; savedCubeJSON = null;
+  animFace = null; animating = false;
+  mode = 'paint';
+
+  // Start solved, apply 25 random moves — guarantees solvable + standard centers
+  cubeObj = new Cube();
+  const faces = ['U','R','F','D','L','B'];
+  const mods = ['', "'", '2'];
+  let lastFace = -1;
+  for (let i = 0; i < 25; i++) {
+    let fi;
+    do { fi = Math.floor(Math.random() * 6); } while (fi === lastFace);
+    lastFace = fi;
+    cubeObj.move(faces[fi] + mods[Math.floor(Math.random() * 3)]);
+  }
+  // Derive painted colors from the cubejs state
+  paintedColors = cubeStringToColors(cubeObj.asString());
+  buildNet();
+  updateColorCounts();
+
+  document.getElementById('steps-container').innerHTML = '<p style="color:#555;text-align:center;padding:30px 0;">Steps appear here after solving.</p>';
+  document.getElementById('prev-btn').disabled = true;
+  document.getElementById('play-btn').disabled = true;
+  document.getElementById('next-btn').disabled = true;
+  document.getElementById('progress-fill').style.width = '0%';
+  setStatus('Random scramble applied! Click Solve Cube.', 'info');
+}
+
+function showCongrats() {
+  document.getElementById('congrats-text').textContent = 'Solved in ' + solveSteps.length + ' moves!';
+  document.getElementById('congrats').classList.add('show');
+}
+function closeCongrats() { document.getElementById('congrats').classList.remove('show'); }
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
